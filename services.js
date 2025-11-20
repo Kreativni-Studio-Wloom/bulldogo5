@@ -138,6 +138,13 @@ async function setupRealtimeListener() {
         
         // Nejdříve zkusit jednorázový dotaz pro debug
         console.log('🔍 Testuji přímý dotaz na inzeráty...');
+        console.log('🔍 Diagnostika:', {
+            firebaseDb: !!servicesFirebaseDb,
+            appCheck: window.firebaseAppCheck ? 'inicializován' : 'vypnutý',
+            currentUser: window.firebaseAuth?.currentUser ? window.firebaseAuth.currentUser.email : 'není přihlášen',
+            hostname: window.location?.hostname
+        });
+        
         try {
             const testSnapshot = await getDocs(servicesRef);
             console.log('✅ Test dotaz úspěšný! Počet inzerátů:', testSnapshot.docs.length);
@@ -149,7 +156,18 @@ async function setupRealtimeListener() {
             console.error('❌ TEST DOTAZ SELHAL:', testError);
             console.error('Error code:', testError.code);
             console.error('Error message:', testError.message);
-            console.error('Pokud vidíte "permission-denied", zkontrolujte Firestore pravidla v Firebase Console!');
+            
+            // Detailní diagnostika pro permission-denied
+            if (testError.code === 'permission-denied') {
+                console.error('🔍 DIAGNOSTIKA permission-denied:');
+                console.error('  1. App Check:', window.firebaseAppCheck ? 'INICIALIZOVÁN (možná problém!)' : 'VYPNUTÝ (OK)');
+                console.error('  2. Firestore pravidla: Zkontrolujte Firebase Console → Firestore → Rules');
+                console.error('  3. App Check enforcement: Zkontrolujte Firebase Console → App Check → Settings');
+                console.error('  4. CollectionGroup dotazy vyžadují: allow read: if true; pro users/{userId}/{document=**}');
+                console.error('  5. Pokud je App Check inicializován a selhává, může blokovat Firestore požadavky');
+                console.error('💡 ŘEŠENÍ: Nastavte window.DISABLE_APP_CHECK = true před načtením firebase-init.js');
+            }
+            
             throw testError; // Necháme propadnout a zobrazit chybu
         }
         

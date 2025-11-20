@@ -1,6 +1,24 @@
 // Centralizovaná inicializace Firebase pro celý frontend
 // Načítá oficiální SDK moduly z gstatic a publikuje app/auth/db na window
 
+// ============================================================================
+// AUTOMATICKÉ VYPNUTÍ APP CHECK PRO PRODUKCI
+// ============================================================================
+// Důvod: App Check může blokovat Firestore požadavky, pokud selhává
+// Problém: Auth funguje, ale Firestore vrací permission-denied
+// Řešení: Automaticky vypnout App Check pro produkci (není localhost)
+// ============================================================================
+if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    // Pokud není localhost a App Check není explicitně zapnutý, vypnout ho
+    if (!isLocal && typeof window.ENABLE_APP_CHECK === 'undefined' && typeof window.DISABLE_APP_CHECK === 'undefined') {
+        window.DISABLE_APP_CHECK = true;
+        console.log('🔧 App Check automaticky vypnutý pro produkci:', hostname);
+        console.log('💡 Důvod: Předejít permission-denied chybám při Firestore dotazech');
+    }
+}
+
 console.log('🔥 firebase-init.js: Začínám načítat Firebase...');
 
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
@@ -47,35 +65,49 @@ try {
         console.log('✅ Firebase Firestore inicializován standardně');
     }
 
-    // App Check (zapnout jen když máme reCAPTCHA v3 SITE KEY nebo jsme na localhost)
-    // DŮLEŽITÉ: App Check je volitelný - pokud selže, neblokuje přístup k Firestore
-    // Pro produkci: App Check je VYPNUTÝ, dokud není nová doména přidaná do reCAPTCHA
-    // App Check se načítá dynamicky jen když je potřeba, aby se předešlo chybám
+    // ============================================================================
+    // APP CHECK KONFIGURACE
+    // ============================================================================
+    // DŮLEŽITÉ: App Check může blokovat Firestore požadavky, pokud selhává
+    // Problém: Auth funguje, ale Firestore vrací permission-denied
+    // Příčina: App Check enforcement v Firebase Console nebo selhávající App Check token
+    // 
+    // ŘEŠENÍ: Úplně vypnout App Check pro produkci, dokud není nová doména v reCAPTCHA
+    // ============================================================================
+    
     window.firebaseAppCheck = null; // Výchozí hodnota - App Check vypnutý
     
+    // Detekce prostředí
+    const isLocal = typeof window !== 'undefined' && window.location && (
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1'
+    );
+    
+    const appCheckDisabled = typeof window !== 'undefined' && window.DISABLE_APP_CHECK === true;
+    const appCheckEnabled = typeof window !== 'undefined' && window.ENABLE_APP_CHECK === true;
+    
+    console.log('🔍 App Check konfigurace:', {
+        isLocal,
+        appCheckDisabled,
+        appCheckEnabled,
+        hostname: typeof window !== 'undefined' && window.location ? window.location.hostname : 'unknown'
+    });
+    
     // App Check inicializace - POUZE pro localhost nebo když je explicitně zapnutý
-    // DŮLEŽITÉ: Pro produkci se App Check NENI inicializovat, pokud není explicitně zapnutý
-    // Pokud se App Check inicializuje a selhává, může blokovat Firestore požadavky
+    // PRO PRODUKCI: App Check je VYPNUTÝ, aby se předešlo permission-denied chybám
     (async () => {
         try {
-            const isLocal = typeof window !== 'undefined' && window.location && (
-                window.location.hostname === 'localhost' ||
-                window.location.hostname === '127.0.0.1'
-            );
-            
-            const appCheckDisabled = typeof window !== 'undefined' && window.DISABLE_APP_CHECK === true;
-            const appCheckEnabled = typeof window !== 'undefined' && window.ENABLE_APP_CHECK === true;
-            
-            // Pokud je App Check explicitně vypnutý, neinicializovat
+            // 1. Pokud je explicitně vypnutý, neinicializovat
             if (appCheckDisabled) {
                 console.log('ℹ️ App Check je explicitně vypnutý (window.DISABLE_APP_CHECK = true)');
                 window.firebaseAppCheck = null;
                 return;
             }
             
-            // Pro localhost: vždy inicializovat App Check s debug tokenem
+            // 2. Pro localhost: vždy inicializovat App Check s debug tokenem
             if (isLocal) {
                 try {
+                    console.log('🔧 Inicializuji App Check pro localhost...');
                     const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
                     // eslint-disable-next-line no-undef
                     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
@@ -92,9 +124,10 @@ try {
                 return;
             }
             
-            // Pro produkci: inicializovat POUZE když je explicitně zapnutý
+            // 3. Pro produkci: inicializovat POUZE když je explicitně zapnutý
             if (appCheckEnabled) {
                 try {
+                    console.log('🔧 Inicializuji App Check pro produkci (explicitně zapnutý)...');
                     const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
                     const siteKey = (typeof window !== 'undefined' && window.FIREBASE_RECAPTCHA_V3_SITE_KEY)
                         ? window.FIREBASE_RECAPTCHA_V3_SITE_KEY
@@ -114,10 +147,15 @@ try {
                 return;
             }
             
-            // Pro produkci: App Check je VYPNUTÝ (výchozí stav)
-            // NENI inicializovat App Check, aby se předešlo ReCAPTCHA chybám a permission-denied
-            console.log('ℹ️ App Check je vypnutý pro produkci (není localhost, není explicitně zapnutý)');
-            console.log('💡 Pro zapnutí App Check nastavte: window.ENABLE_APP_CHECK = true před načtením firebase-init.js');
+            // 4. Pro produkci: App Check je VYPNUTÝ (výchozí stav)
+            // DŮLEŽITÉ: Neinicializovat App Check, aby se předešlo:
+            // - ReCAPTCHA chybám
+            // - permission-denied chybám při Firestore dotazech
+            // - Blokování požadavků kvůli selhávajícímu App Check tokenu
+            console.log('ℹ️ App Check je VYPNUTÝ pro produkci (není localhost, není explicitně zapnutý)');
+            console.log('💡 Důvod: Předejít permission-denied chybám při Firestore dotazech');
+            console.log('💡 Pro zapnutí App Check: nastavte window.ENABLE_APP_CHECK = true před načtením firebase-init.js');
+            console.log('💡 Nebo přidejte novou doménu do reCAPTCHA konfigurace v Google Cloud Console');
             window.firebaseAppCheck = null;
             
         } catch (err) {
@@ -150,12 +188,28 @@ try {
         console.log('📢 Event firebaseReady vyslán');
     }
 
-    console.log('✅ Firebase inicializován a připraven:', { 
-        app: !!app, 
-        auth: !!auth, 
+    // Diagnostika: Zkontrolovat App Check stav
+    console.log('🔍 Firebase inicializace dokončena:', {
+        app: !!app,
+        auth: !!auth,
         db: !!db,
+        appCheck: window.firebaseAppCheck ? 'INICIALIZOVÁN' : 'VYPNUTÝ',
+        hostname: typeof window !== 'undefined' && window.location ? window.location.hostname : 'unknown',
         ready: !!window.firebaseReady
     });
+    
+    // Varování pokud je App Check inicializován v produkci (může způsobit problémy)
+    if (window.firebaseAppCheck && typeof window !== 'undefined' && window.location) {
+        const hostname = window.location.hostname;
+        const isProd = hostname !== 'localhost' && hostname !== '127.0.0.1';
+        if (isProd) {
+            console.warn('⚠️ VAROVÁNÍ: App Check je inicializován v produkci');
+            console.warn('⚠️ Pokud vidíte permission-denied chyby, zkuste vypnout App Check:');
+            console.warn('⚠️ Nastavte window.DISABLE_APP_CHECK = true před načtením firebase-init.js');
+        }
+    }
+    
+    console.log('✅ Firebase inicializován a připraven');
 } catch (error) {
     console.error('❌ Kritická chyba při inicializaci Firebase:', error);
     console.error('❌ Error details:', {
