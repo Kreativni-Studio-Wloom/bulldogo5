@@ -184,8 +184,51 @@
         <div id="log" class="log" style="display: none;"></div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script type="module" src="firebase-init.js"></script>
+    <!-- Firebase SDK - načítáme přímo, ne přes firebase-init.js -->
+    <script type="module">
+        // Inicializace Firebase přímo v diagnostické stránce
+        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, initializeFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1FEmsY458LLKQLGcUaOVXsYr3Ii55QeQ",
+            authDomain: "inzerio-inzerce.firebaseapp.com",
+            projectId: "inzerio-inzerce",
+            storageBucket: "inzerio-inzerce.appspot.com",
+            messagingSenderId: "262039290071",
+            appId: "1:262039290071:web:30af0eb1c65cd75e307092",
+            measurementId: "G-7VD0ZE08M3"
+        };
+        
+        try {
+            let app;
+            if (getApps().length) {
+                app = getApps()[0];
+            } else {
+                app = initializeApp(firebaseConfig);
+            }
+            
+            const auth = getAuth(app);
+            let db;
+            try {
+                db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });
+            } catch (err) {
+                db = getFirestore(app);
+            }
+            
+            window.firebaseApp = app;
+            window.firebaseAuth = auth;
+            window.firebaseDb = db;
+            window.firebaseAppCheck = null; // App Check vypnutý
+            window.firebaseReady = true;
+            
+            console.log('✅ Firebase inicializován v diagnostické stránce');
+        } catch (error) {
+            console.error('❌ Chyba při inicializaci Firebase:', error);
+            window.firebaseError = error;
+        }
+    </script>
 
     <script type="module">
         const log = [];
@@ -775,27 +818,23 @@
         
         // Automaticky spustit diagnostiku po načtení
         window.addEventListener('load', () => {
+            // Počkat na načtení Firebase modulů
             setTimeout(() => {
-                if (window.firebaseReady) {
-                    runDiagnostics();
-                } else {
-                    // Počkat na Firebase
-                    const checkFirebase = setInterval(() => {
-                        if (window.firebaseReady) {
-                            clearInterval(checkFirebase);
-                            runDiagnostics();
-                        }
-                    }, 500);
-                    
-                    setTimeout(() => {
+                // Zkusit počkat na Firebase
+                let attempts = 0;
+                const checkFirebase = setInterval(() => {
+                    attempts++;
+                    if (window.firebaseReady || window.firebaseApp) {
                         clearInterval(checkFirebase);
-                        if (!window.firebaseReady) {
-                            addLog('⚠️ Firebase se nenačetl po 10 sekundách, spouštím diagnostiku...', 'warning');
-                            runDiagnostics();
-                        }
-                    }, 10000);
-                }
-            }, 2000);
+                        addLog('✅ Firebase je připraven, spouštím diagnostiku...', 'success');
+                        runDiagnostics();
+                    } else if (attempts > 20) {
+                        clearInterval(checkFirebase);
+                        addLog('⚠️ Firebase se nenačetl po 10 sekundách, spouštím diagnostiku s dostupnými informacemi...', 'warning');
+                        runDiagnostics();
+                    }
+                }, 500);
+            }, 1000);
         });
     </script>
 </body>
