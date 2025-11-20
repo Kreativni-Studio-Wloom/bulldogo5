@@ -104,9 +104,24 @@ try {
                     console.warn('💡 Přidejte novou doménu do reCAPTCHA konfigurace v Google Cloud Console');
                 }
             } else {
-                // Pro produkci: App Check je vypnutý (výchozí stav)
-                console.log('ℹ️ App Check je vypnutý pro produkci (nová doména není v reCAPTCHA konfiguraci)');
-                console.log('💡 Pro zapnutí App Check: přidejte doménu do reCAPTCHA a nastavte: window.ENABLE_APP_CHECK = true');
+                // Pro produkci: Zkusit inicializovat App Check i když se objevují chyby
+                // Možná se token přesto vygeneruje a požadavky budou fungovat
+                try {
+                    const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
+                    const siteKey = '6LdqPRIsAAAAAH_lRkJFQSQbbAP6dhYyxjTdsKsd';
+                    
+                    const appCheck = initializeAppCheck(app, {
+                        provider: new ReCaptchaV3Provider(siteKey),
+                        isTokenAutoRefreshEnabled: true,
+                    });
+                    window.firebaseAppCheck = appCheck;
+                    console.log('✅ Firebase App Check inicializován (produkce - i když se mohou objevovat ReCAPTCHA chyby)');
+                } catch (appCheckError) {
+                    console.warn('⚠️ App Check inicializace selhala v produkci:', appCheckError.message);
+                    console.warn('💡 Zkusím pokračovat bez App Check - pokud se objevují permission-denied chyby,');
+                    console.warn('💡 přidejte novou doménu do reCAPTCHA konfigurace v Google Cloud Console');
+                    window.firebaseAppCheck = null;
+                }
             }
         } catch (err) {
             console.warn('⚠️ App Check není k dispozici nebo selhala inicializace:', err);
