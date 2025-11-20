@@ -1,0 +1,22 @@
+// Firebase Firestore pravidla pro povolení přístupu
+// Tyto pravidla musí být nastavena v Firebase Console
+// 
+// DŮLEŽITÉ: Zkopírujte tento obsah do Firebase Console → Firestore → Rules → Edit
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Veřejné čtení všech dokumentů uživatelů i bez autentifikace (pro collectionGroup dotazy)
+    // Toto je nutné pro collectionGroup("inzeraty") dotazy, které potřebují přístup k users dokumentům
+    match /users/{userId}/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Explicitně povolit čtení uživatelských dokumentů bez autentifikace
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

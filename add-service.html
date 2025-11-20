@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Přidat službu - Bulldogo.cz</title>
+    <meta name="description" content="Vytvořte nový inzerát/službu na Bulldogo.cz.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" type="image/png" href="fotky/bulldogo-logo.png">
+    <link rel="apple-touch-icon" href="fotky/bulldogo-logo.png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script type="module" src="firebase-init.js"></script>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">B</div>
+                <span class="logo-text">
+                    <span class="logo-bull">ULL</span>
+                    <span class="logo-dogo">DOGO</span>
+                </span>
+            </div>
+            <div class="header-buttons"></div>
+        </div>
+
+        <div class="navigation-section">
+            <h3 class="nav-section-title">NAVIGACE</h3>
+            <ul class="nav-menu">
+                <li class="nav-item"><a href="index.html" class="nav-link"><i class="fas fa-home nav-icon"></i><span class="nav-text">Domů</span></a></li>
+                <li class="nav-item"><a href="services.html" class="nav-link"><i class="fas fa-list-alt nav-icon"></i><span class="nav-text">Služby</span></a></li>
+                <li class="nav-item"><a href="my-ads.html" class="nav-link"><i class="fas fa-user nav-icon"></i><span class="nav-text">Mé inzeráty</span></a></li>
+                <li class="nav-item"><a href="index.html#about" class="nav-link"><i class="fas fa-info-circle nav-icon"></i><span class="nav-text">O nás</span></a></li>
+                <li class="nav-item"><a href="index.html#contact" class="nav-link"><i class="fas fa-envelope nav-icon"></i><span class="nav-text">Kontakt</span></a></li>
+                <li class="nav-item"><a href="chat.html" class="nav-link"><i class="fas fa-comment-alt nav-icon"></i><span class="nav-text">Chat</span></a></li>
+                <li class="nav-item"><a href="top-ads.html" class="nav-link"><i class="fas fa-fire nav-icon"></i><span class="nav-text">Topování</span></a></li>
+                <li class="nav-item"><a href="packages.html" class="nav-link"><i class="fas fa-box nav-icon"></i><span class="nav-text">Balíčky</span></a></li>
+            </ul>
+        </div>
+
+        <div class="auth-section" id="authSection">
+            <button class="btn-login" onclick="showAuthModal('login')"><i class="fas fa-sign-in-alt"></i><span>Přihlášení</span></button>
+            <button class="btn-register" onclick="showAuthModal('register')"><i class="fas fa-user-plus"></i><span>Registrace</span></button>
+        </div>
+
+        <div class="user-profile-section" id="userProfileSection" style="display: none;">
+            <button class="btn-profile" onclick="window.location.href='profile.html'"><i class="fas fa-user-circle"></i><span>Profil</span></button>
+            <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i><span>Odhlásit se</span></button>
+        </div>
+    </nav>
+
+    <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><i class="fas fa-bars"></i></button>
+    <button class="sidebar-toggle-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+
+    <div class="main-content">
+        <div class="container" style="max-width: 900px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <button class="back-btn" onclick="window.history.length>1?history.back():window.location.href='services.html'">
+                    <i class="fas fa-arrow-left"></i> Zpět
+                </button>
+            </div>
+            <h1 style="margin-bottom: 8px;">Přidat novou službu</h1>
+            <p style="color:#6b7280; margin:0 0 20px 0;">Vyplňte informace o inzerátu. Popis má limit 600 znaků.</p>
+
+            <form id="addServiceForm" class="form">
+                <div class="form-group">
+                    <label for="title" class="form-label">Název služby</label>
+                    <input type="text" id="title" name="title" placeholder="Např. Opravy počítačů" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="category" class="form-label">Kategorie</label>
+                    <select id="category" name="category" required>
+                        <option value="">Vyberte kategorii</option>
+                        <option value="home_craftsmen">Domácnost & Řemeslníci</option>
+                        <option value="auto_moto">Auto & Moto</option>
+                        <option value="garden_exterior">Zahrada & Exteriér</option>
+                        <option value="education_tutoring">Vzdělávání & Doučování</option>
+                        <option value="it_technology">IT & technologie</option>
+                        <option value="health_personal_care">Zdraví a Osobní péče</option>
+                        <option value="gastronomy_catering">Gastronomie & Catering</option>
+                        <option value="events_entertainment">Události & Zábava</option>
+                        <option value="personal_small_jobs">Osobní služby & drobné práce</option>
+                        <option value="auto_moto_transport">Auto - moto doprava</option>
+                        <option value="hobby_creative">Hobby</option>
+                        <option value="law_finance_admin">Právo & finance & administrativa</option>
+                        <option value="pets">Domácí zvířata</option>
+                        <option value="specialized_custom">Specializované služby / na přání</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="description" class="form-label">Popis</label>
+                    <textarea id="serviceDescription" name="description" rows="5" placeholder="Popište službu co nejpřesněji (max 600 znaků)." maxlength="600" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cenový typ</label>
+                    <select id="priceType" name="priceType" required>
+                        <option value="fixed" selected>Fixní cena</option>
+                        <option value="negotiable">Dohodou</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="price" class="form-label">Cena</label>
+                    <input type="text" id="price" name="price" placeholder="Např. 500 Kč/hod">
+                </div>
+
+                <div class="form-group">
+                    <label for="region" class="form-label">Kraj</label>
+                    <select id="region" name="region" required>
+                        <option value="">Vyberte kraj</option>
+                        <option value="Hlavní město Praha">Hlavní město Praha</option>
+                        <option value="Středočeský kraj">Středočeský kraj</option>
+                        <option value="Jihočeský kraj">Jihočeský kraj</option>
+                        <option value="Plzeňský kraj">Plzeňský kraj</option>
+                        <option value="Karlovarský kraj">Karlovarský kraj</option>
+                        <option value="Ústecký kraj">Ústecký kraj</option>
+                        <option value="Liberecký kraj">Liberecký kraj</option>
+                        <option value="Královéhradecký kraj">Královéhradecký kraj</option>
+                        <option value="Pardubický kraj">Pardubický kraj</option>
+                        <option value="Kraj Vysočina">Kraj Vysočina</option>
+                        <option value="Jihomoravský kraj">Jihomoravský kraj</option>
+                        <option value="Olomoucký kraj">Olomoucký kraj</option>
+                        <option value="Zlínský kraj">Zlínský kraj</option>
+                        <option value="Moravskoslezský kraj">Moravskoslezský kraj</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Náhledový obrázek (povinný)</label>
+                    <input type="file" id="previewImage" accept="image/*" required>
+                    <div id="previewImagePreview" class="image-preview empty"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Další obrázky (volitelné, max 10)</label>
+                    <input type="file" id="additionalImages" accept="image/*" multiple>
+                    <div id="additionalImagesPreview" class="images-grid"></div>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Vytvořit inzerát
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2024 Bulldogo.cz. Všechna práva vyhrazena.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js" defer></script>
+    <script src="auth.js" defer></script>
+    <script>
+    // Gating pro samostatnou stránku: vyžaduje přihlášení a vybraný balíček
+    (function gate() {
+        function check() {
+            try {
+                const user = window.firebaseAuth && window.firebaseAuth.currentUser;
+                if (!user) {
+                    if (typeof window.showAuthRequiredModal === 'function') {
+                        window.showAuthRequiredModal();
+                    } else if (typeof window.showAuthModal === 'function') {
+                        window.showAuthModal('login');
+                    } else {
+                        alert('Pro přidání inzerátu se prosím přihlaste.');
+                    }
+                    return;
+                }
+                const plan = localStorage.getItem('bdg_plan');
+                if (!plan) {
+                    if (typeof window.showMessage === 'function') {
+                        window.showMessage('Nejdříve si vyberte balíček.', 'info');
+                    }
+                    window.location.href = 'packages.html';
+                }
+            } catch (_) {}
+        }
+        if (window.firebaseReady) { check(); }
+        else {
+            window.addEventListener('firebaseReady', check);
+        }
+    })();
+    </script>
+</body>
+</html>
+
