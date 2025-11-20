@@ -2,21 +2,75 @@
 // Tyto pravidla musí být nastavena v Firebase Console
 // 
 // DŮLEŽITÉ: Zkopírujte tento obsah do Firebase Console → Firestore → Rules → Edit
+// Po úpravách klikněte na "Publish" pro publikování pravidel
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Veřejné čtení všech dokumentů uživatelů i bez autentifikace (pro collectionGroup dotazy)
-    // Toto je nutné pro collectionGroup("inzeraty") dotazy, které potřebují přístup k users dokumentům
+    
+    // ============================================================================
+    // USERS A SUBKOLEKCE
+    // ============================================================================
+    // Veřejné čtení všech dokumentů uživatelů i bez autentifikace
+    // Toto je NUTNÉ pro collectionGroup("inzeraty"), collectionGroup("profile"), collectionGroup("reviews") dotazy
+    // CollectionGroup dotazy procházejí napříč všemi users dokumenty
     match /users/{userId}/{document=**} {
+      // Veřejné čtení - umožňuje collectionGroup dotazy i bez přihlášení
+      allow read: if true;
+      // Zápis jen pro vlastníka dokumentu
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Explicitně povolit čtení uživatelských root dokumentů bez autentifikace
+    match /users/{userId} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Explicitně povolit čtení uživatelských dokumentů bez autentifikace
-    match /users/{userId} {
+    // ============================================================================
+    // CONVERSATIONS (CHAT)
+    // ============================================================================
+    // Konverzace - čtení a zápis jen pro přihlášené účastníky
+    // Poznámka: Dotaz používá where('users', 'array-contains', uid), takže Firestore už filtruje
+    match /conversations/{convId} {
+      // Čtení: jen pro přihlášené (dotaz už filtruje přes array-contains)
+      allow read: if request.auth != null;
+      // Vytvoření: uživatel musí být v seznamu účastníků
+      allow create: if request.auth != null && 
+        request.auth.uid in request.resource.data.users;
+      // Aktualizace: jen pro účastníky konverzace
+      allow update: if request.auth != null && 
+        (request.auth.uid in resource.data.users || 
+         request.auth.uid in request.resource.data.users);
+      allow delete: if request.auth != null && 
+        request.auth.uid in resource.data.users;
+    }
+    
+    // Zprávy v konverzaci - jen pro přihlášené účastníky
+    match /conversations/{convId}/messages/{messageId} {
+      // Čtení: jen pro přihlášené
+      allow read: if request.auth != null;
+      // Zápis: jen pro přihlášené uživatele, senderId musí odpovídat
+      allow create: if request.auth != null && 
+        request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        resource.data.senderId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // LEGACY KOLEKCE (FALLBACK)
+    // ============================================================================
+    // Stará kolekce services - veřejné čtení pro kompatibilitu
+    match /services/{serviceId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null;
+    }
+    
+    // ============================================================================
+    // TEST KOLEKCE (PRO VÝVOJ)
+    // ============================================================================
+    match /test/{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

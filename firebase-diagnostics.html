@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Diagnostika - Bulldogo.cz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.pending {
+            background: #ffa500;
+            color: white;
+        }
+        .status.success {
+            background: #4caf50;
+            color: white;
+        }
+        .status.error {
+            background: #f44336;
+            color: white;
+        }
+        .status.warning {
+            background: #ff9800;
+            color: white;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #ddd;
+        }
+        .test-item.success {
+            border-left-color: #4caf50;
+        }
+        .test-item.error {
+            border-left-color: #f44336;
+        }
+        .test-item.warning {
+            border-left-color: #ff9800;
+        }
+        .test-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .test-value {
+            color: #666;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        .test-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #555;
+        }
+        .solution {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 4px;
+        }
+        .solution h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        .solution ol {
+            margin-left: 20px;
+            color: #333;
+        }
+        .solution li {
+            margin: 5px 0;
+        }
+        .btn {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .btn:hover {
+            background: #1976d2;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+        }
+        .log-entry.error {
+            color: #f48771;
+        }
+        .log-entry.success {
+            color: #4ec9b0;
+        }
+        .log-entry.warning {
+            color: #dcdcaa;
+        }
+        .log-entry.info {
+            color: #569cd6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Firebase Diagnostika</h1>
+        <p class="subtitle">Komplexní kontrola Firebase konfigurace a problémů s Firestore</p>
+        
+        <button class="btn" onclick="runDiagnostics()">▶️ Spustit diagnostiku</button>
+        <button class="btn" onclick="clearLog()">🗑️ Vymazat log</button>
+        
+        <div id="results"></div>
+        <div id="log" class="log" style="display: none;"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module" src="firebase-init.js"></script>
+
+    <script type="module">
+        const log = [];
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            log.push({ timestamp, message, type });
+            updateLogDisplay();
+        }
+        
+        function updateLogDisplay() {
+            const logDiv = document.getElementById('log');
+            logDiv.style.display = 'block';
+            logDiv.innerHTML = log.map(entry => {
+                const icon = {
+                    'error': '❌',
+                    'success': '✅',
+                    'warning': '⚠️',
+                    'info': 'ℹ️'
+                }[entry.type] || '📝';
+                return `<div class="log-entry ${entry.type}">[${entry.timestamp}] ${icon} ${entry.message}</div>`;
+            }).join('');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.length = 0;
+            document.getElementById('log').style.display = 'none';
+        }
+        
+        async function runDiagnostics() {
+            addLog('Spouštím diagnostiku...', 'info');
+            document.getElementById('results').innerHTML = '<p>⏳ Probíhá diagnostika...</p>';
+            
+            const results = {
+                firebaseInit: await testFirebaseInit(),
+                appCheck: await testAppCheck(),
+                firestoreRules: await testFirestoreRules(),
+                appCheckEnforcement: await testAppCheckEnforcement(),
+                firestoreConnection: await testFirestoreConnection(),
+                collectionGroup: await testCollectionGroup(),
+                auth: await testAuth()
+            };
+            
+            displayResults(results);
+        }
+        
+        async function testFirebaseInit() {
+            addLog('Test 1: Kontrola Firebase inicializace...', 'info');
+            const result = {
+                name: 'Firebase Inicializace',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                // Počkat na Firebase
+                let attempts = 0;
+                while (!window.firebaseApp && attempts < 50) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (!window.firebaseApp) {
+                    result.status = 'error';
+                    result.items.push({
+                        label: 'Firebase App',
+                        value: 'NENALEZEN',
+                        status: 'error'
+                    });
+                    addLog('❌ Firebase App není dostupný', 'error');
+                    return result;
+                }
+                
+                result.items.push({
+                    label: 'Firebase App',
+                    value: 'Dostupný',
+                    status: 'success'
+                });
+                
+                if (window.firebaseAuth) {
+                    result.items.push({
+                        label: 'Firebase Auth',
+                        value: 'Dostupný',
+                        status: 'success'
+                    });
+                } else {
+                    result.items.push({
+                        label: 'Firebase Auth',
+                        value: 'NENALEZEN',
+                        status: 'error'
+                    });
+                }
+                
+                if (window.firebaseDb) {
+                    result.items.push({
+                        label: 'Firebase Firestore',
+                        value: 'Dostupný',
+                        status: 'success'
+                    });
+                } else {
+                    result.items.push({
+                        label: 'Firebase Firestore',
+                        value: 'NENALEZEN',
+                        status: 'error'
+                    });
+                }
+                
+                result.status = window.firebaseApp && window.firebaseAuth && window.firebaseDb ? 'success' : 'error';
+                addLog('✅ Firebase inicializace: ' + result.status, result.status);
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Chyba',
+                    value: error.message,
+                    status: 'error'
+                });
+                addLog('❌ Chyba při kontrole Firebase: ' + error.message, 'error');
+            }
+            
+            return result;
+        }
+        
+        async function testAppCheck() {
+            addLog('Test 2: Kontrola App Check...', 'info');
+            const result = {
+                name: 'App Check Konfigurace',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                const hostname = window.location.hostname;
+                const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+                
+                result.items.push({
+                    label: 'Hostname',
+                    value: hostname,
+                    status: 'info'
+                });
+                
+                result.items.push({
+                    label: 'Je localhost?',
+                    value: isLocal ? 'Ano' : 'Ne',
+                    status: isLocal ? 'warning' : 'success'
+                });
+                
+                const appCheckDisabled = window.DISABLE_APP_CHECK === true;
+                const appCheckEnabled = window.ENABLE_APP_CHECK === true;
+                
+                result.items.push({
+                    label: 'DISABLE_APP_CHECK',
+                    value: appCheckDisabled ? 'true (vypnutý)' : 'false/undefined',
+                    status: appCheckDisabled ? 'success' : 'warning'
+                });
+                
+                result.items.push({
+                    label: 'ENABLE_APP_CHECK',
+                    value: appCheckEnabled ? 'true (zapnutý)' : 'false/undefined',
+                    status: appCheckEnabled ? 'warning' : 'success'
+                });
+                
+                const appCheckInitialized = window.firebaseAppCheck !== null && window.firebaseAppCheck !== undefined;
+                
+                result.items.push({
+                    label: 'App Check inicializován?',
+                    value: appCheckInitialized ? 'ANO (PROBLÉM!)' : 'Ne (OK)',
+                    status: appCheckInitialized ? 'error' : 'success'
+                });
+                
+                if (appCheckInitialized) {
+                    result.items.push({
+                        label: '⚠️ VAROVÁNÍ',
+                        value: 'App Check je inicializován i když by neměl být!',
+                        status: 'error',
+                        details: 'App Check může blokovat Firestore požadavky. Měl by být vypnutý pro produkci.'
+                    });
+                }
+                
+                result.status = appCheckInitialized ? 'error' : 'success';
+                addLog(appCheckInitialized ? '❌ App Check je inicializován (PROBLÉM!)' : '✅ App Check je vypnutý (OK)', appCheckInitialized ? 'error' : 'success');
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Chyba',
+                    value: error.message,
+                    status: 'error'
+                });
+            }
+            
+            return result;
+        }
+        
+        async function testFirestoreRules() {
+            addLog('Test 3: Test Firestore pravidel...', 'info');
+            const result = {
+                name: 'Firestore Security Rules',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                if (!window.firebaseDb) {
+                    result.status = 'error';
+                    result.items.push({
+                        label: 'Firestore DB',
+                        value: 'Není dostupný',
+                        status: 'error'
+                    });
+                    return result;
+                }
+                
+                // Test 1: Čtení users dokumentu
+                try {
+                    const { collection, getDocs, limit } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                    const usersRef = collection(window.firebaseDb, 'users');
+                    const snapshot = await getDocs(limit(usersRef, 1));
+                    
+                    result.items.push({
+                        label: 'Čtení users kolekce',
+                        value: 'POVOLENO',
+                        status: 'success'
+                    });
+                    addLog('✅ Čtení users kolekce: POVOLENO', 'success');
+                } catch (error) {
+                    result.items.push({
+                        label: 'Čtení users kolekce',
+                        value: 'ZAKÁZÁNO: ' + error.message,
+                        status: 'error',
+                        details: 'Pravidla neumožňují čtení users kolekce. Zkontrolujte Firebase Console → Firestore → Rules'
+                    });
+                    addLog('❌ Čtení users kolekce: ZAKÁZÁNO - ' + error.message, 'error');
+                }
+                
+                // Test 2: CollectionGroup dotaz
+                try {
+                    const { collectionGroup, getDocs, limit } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                    const inzeratyRef = collectionGroup(window.firebaseDb, 'inzeraty');
+                    const snapshot = await getDocs(limit(inzeratyRef, 1));
+                    
+                    result.items.push({
+                        label: 'CollectionGroup("inzeraty") dotaz',
+                        value: 'POVOLENO - ' + snapshot.docs.length + ' dokumentů',
+                        status: 'success'
+                    });
+                    addLog('✅ CollectionGroup dotaz: POVOLENO', 'success');
+                    result.status = 'success';
+                } catch (error) {
+                    result.items.push({
+                        label: 'CollectionGroup("inzeraty") dotaz',
+                        value: 'ZAKÁZÁNO: ' + error.message,
+                        status: 'error',
+                        details: 'CollectionGroup dotazy vyžadují: allow read: if true; pro users/{userId}/{document=**}'
+                    });
+                    addLog('❌ CollectionGroup dotaz: ZAKÁZÁNO - ' + error.message, 'error');
+                    result.status = 'error';
+                }
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Chyba',
+                    value: error.message,
+                    status: 'error'
+                });
+            }
+            
+            return result;
+        }
+        
+        async function testAppCheckEnforcement() {
+            addLog('Test 4: Kontrola App Check Enforcement...', 'info');
+            const result = {
+                name: 'App Check Enforcement (Firebase Console)',
+                status: 'pending',
+                items: []
+            };
+            
+            // Toto nelze zkontrolovat programově, musí se zkontrolovat ručně
+            result.items.push({
+                label: '⚠️ Nelze zkontrolovat automaticky',
+                value: 'Musíte zkontrolovat ručně v Firebase Console',
+                status: 'warning',
+                details: 'Jděte na: Firebase Console → App Check → Settings → Cloud Firestore. Mělo by být "Monitor" nebo "Off", ne "Enforce".'
+            });
+            
+            result.items.push({
+                label: 'Co zkontrolovat',
+                value: 'Firebase Console → App Check → Settings',
+                status: 'info',
+                details: '1. Otevřete Firebase Console\n2. App Check → Settings\n3. Najděte Cloud Firestore\n4. Mělo by být "Monitor" nebo "Off"\n5. Pokud je "Enforce" → změňte na "Monitor" nebo "Off"'
+            });
+            
+            result.status = 'warning';
+            addLog('⚠️ App Check Enforcement musí být zkontrolován ručně v Firebase Console', 'warning');
+            
+            return result;
+        }
+        
+        async function testFirestoreConnection() {
+            addLog('Test 5: Test připojení k Firestore...', 'info');
+            const result = {
+                name: 'Firestore Připojení',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                if (!window.firebaseDb) {
+                    result.status = 'error';
+                    result.items.push({
+                        label: 'Firestore DB',
+                        value: 'Není dostupný',
+                        status: 'error'
+                    });
+                    return result;
+                }
+                
+                const { collection, getDocs, limit } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                
+                // Test připojení
+                const testRef = collection(window.firebaseDb, 'users');
+                const startTime = Date.now();
+                const snapshot = await getDocs(limit(testRef, 1));
+                const duration = Date.now() - startTime;
+                
+                result.items.push({
+                    label: 'Připojení k Firestore',
+                    value: 'ÚSPĚŠNÉ (' + duration + 'ms)',
+                    status: 'success'
+                });
+                
+                result.items.push({
+                    label: 'Latence',
+                    value: duration + 'ms',
+                    status: duration < 1000 ? 'success' : 'warning'
+                });
+                
+                result.status = 'success';
+                addLog('✅ Firestore připojení: ÚSPĚŠNÉ', 'success');
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Připojení k Firestore',
+                    value: 'SELHALO: ' + error.message,
+                    status: 'error',
+                    details: 'Error code: ' + (error.code || 'unknown') + '\nError message: ' + error.message
+                });
+                addLog('❌ Firestore připojení: SELHALO - ' + error.message, 'error');
+            }
+            
+            return result;
+        }
+        
+        async function testCollectionGroup() {
+            addLog('Test 6: Test CollectionGroup dotazu na inzeráty...', 'info');
+            const result = {
+                name: 'CollectionGroup("inzeraty") Dotaz',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                if (!window.firebaseDb) {
+                    result.status = 'error';
+                    result.items.push({
+                        label: 'Firestore DB',
+                        value: 'Není dostupný',
+                        status: 'error'
+                    });
+                    return result;
+                }
+                
+                const { collectionGroup, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const inzeratyRef = collectionGroup(window.firebaseDb, 'inzeraty');
+                
+                const startTime = Date.now();
+                const snapshot = await getDocs(inzeratyRef);
+                const duration = Date.now() - startTime;
+                
+                const count = snapshot.docs.length;
+                
+                result.items.push({
+                    label: 'Dotaz úspěšný?',
+                    value: 'ANO',
+                    status: 'success'
+                });
+                
+                result.items.push({
+                    label: 'Počet inzerátů',
+                    value: count + ' dokumentů',
+                    status: count > 0 ? 'success' : 'warning'
+                });
+                
+                result.items.push({
+                    label: 'Doba dotazu',
+                    value: duration + 'ms',
+                    status: 'info'
+                });
+                
+                if (count === 0) {
+                    result.items.push({
+                        label: '⚠️ POZOR',
+                        value: 'Žádné inzeráty nenalezeny',
+                        status: 'warning',
+                        details: 'Buď v databázi nejsou žádné inzeráty, nebo pravidla neumožňují čtení.'
+                    });
+                }
+                
+                // Zkontrolovat metadata
+                result.items.push({
+                    label: 'Metadata',
+                    value: 'fromCache: ' + snapshot.metadata.fromCache + ', hasPendingWrites: ' + snapshot.metadata.hasPendingWrites,
+                    status: 'info'
+                });
+                
+                result.status = 'success';
+                addLog('✅ CollectionGroup dotaz: ÚSPĚŠNÝ - ' + count + ' inzerátů', 'success');
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Dotaz selhal',
+                    value: error.message,
+                    status: 'error',
+                    details: 'Error code: ' + (error.code || 'unknown') + '\n\nMožné příčiny:\n' +
+                        '1. Firestore pravidla neumožňují collectionGroup dotazy\n' +
+                        '2. App Check enforcement je zapnutý v Firebase Console\n' +
+                        '3. Pravidla nejsou publikovaná v Firebase Console'
+                });
+                addLog('❌ CollectionGroup dotaz: SELHAL - ' + error.message, 'error');
+            }
+            
+            return result;
+        }
+        
+        async function testAuth() {
+            addLog('Test 7: Kontrola Firebase Auth...', 'info');
+            const result = {
+                name: 'Firebase Auth',
+                status: 'pending',
+                items: []
+            };
+            
+            try {
+                if (!window.firebaseAuth) {
+                    result.status = 'error';
+                    result.items.push({
+                        label: 'Firebase Auth',
+                        value: 'Není dostupný',
+                        status: 'error'
+                    });
+                    return result;
+                }
+                
+                const currentUser = window.firebaseAuth.currentUser;
+                
+                result.items.push({
+                    label: 'Firebase Auth',
+                    value: 'Dostupný',
+                    status: 'success'
+                });
+                
+                result.items.push({
+                    label: 'Přihlášený uživatel',
+                    value: currentUser ? currentUser.email : 'Není přihlášen',
+                    status: currentUser ? 'success' : 'info'
+                });
+                
+                if (currentUser) {
+                    result.items.push({
+                        label: 'User ID',
+                        value: currentUser.uid,
+                        status: 'info'
+                    });
+                }
+                
+                result.status = 'success';
+                addLog('✅ Firebase Auth: ' + (currentUser ? 'Přihlášen: ' + currentUser.email : 'Není přihlášen'), 'success');
+                
+            } catch (error) {
+                result.status = 'error';
+                result.items.push({
+                    label: 'Chyba',
+                    value: error.message,
+                    status: 'error'
+                });
+            }
+            
+            return result;
+        }
+        
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            let html = '';
+            
+            for (const [key, result] of Object.entries(results)) {
+                html += `
+                    <div class="test-section">
+                        <h2>
+                            ${result.name}
+                            <span class="status ${result.status}">${result.status}</span>
+                        </h2>
+                        ${result.items.map(item => `
+                            <div class="test-item ${item.status}">
+                                <div class="test-label">${item.label}</div>
+                                <div class="test-value">${item.value}</div>
+                                ${item.details ? `<div class="test-details">${item.details.replace(/\n/g, '<br>')}</div>` : ''}
+                            </div>
+                        `).join('')}
+                        ${getSolution(result)}
+                    </div>
+                `;
+            }
+            
+            // Shrnutí
+            const hasErrors = Object.values(results).some(r => r.status === 'error');
+            const hasWarnings = Object.values(results).some(r => r.status === 'warning');
+            
+            html = `
+                <div class="test-section" style="background: ${hasErrors ? '#ffebee' : hasWarnings ? '#fff3e0' : '#e8f5e9'};">
+                    <h2>📊 Shrnutí</h2>
+                    <div class="test-item">
+                        <div class="test-label">Celkový stav</div>
+                        <div class="test-value">${hasErrors ? '❌ Nalezeny chyby' : hasWarnings ? '⚠️ Nalezena varování' : '✅ Vše v pořádku'}</div>
+                    </div>
+                    ${getOverallSolution(results)}
+                </div>
+            ` + html;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function getSolution(result) {
+            if (result.status === 'error' || result.status === 'warning') {
+                if (result.name.includes('App Check')) {
+                    return `
+                        <div class="solution">
+                            <h3>💡 Řešení</h3>
+                            <ol>
+                                <li>Zkontrolujte, že <code>window.DISABLE_APP_CHECK = true</code> je nastaveno před načtením firebase-init.js</li>
+                                <li>Zkontrolujte Firebase Console → App Check → Settings → Cloud Firestore</li>
+                                <li>Nastavte App Check enforcement na "Monitor" nebo "Off" (ne "Enforce")</li>
+                            </ol>
+                        </div>
+                    `;
+                } else if (result.name.includes('Firestore Rules') || result.name.includes('CollectionGroup')) {
+                    return `
+                        <div class="solution">
+                            <h3>💡 Řešení</h3>
+                            <ol>
+                                <li>Otevřete Firebase Console → Firestore Database → Rules</li>
+                                <li>Zkopírujte obsah z <code>firestore-rules.txt</code></li>
+                                <li>Vložte do Firebase Console</li>
+                                <li><strong>KLIKNĚTE NA "PUBLISH"</strong> (důležité!)</li>
+                                <li>Zkontrolujte App Check enforcement (mělo by být Monitor/Off)</li>
+                            </ol>
+                        </div>
+                    `;
+                }
+            }
+            return '';
+        }
+        
+        function getOverallSolution(results) {
+            const hasRuleErrors = results.firestoreRules?.status === 'error' || results.collectionGroup?.status === 'error';
+            const hasAppCheckErrors = results.appCheck?.status === 'error';
+            
+            if (hasRuleErrors || hasAppCheckErrors) {
+                return `
+                    <div class="solution">
+                        <h3>🎯 Hlavní řešení</h3>
+                        <ol>
+                            ${hasRuleErrors ? '<li><strong>Opravit Firestore pravidla:</strong><br>Firebase Console → Firestore → Rules → Zkopírovat z firestore-rules.txt → <strong>PUBLISH</strong></li>' : ''}
+                            ${hasAppCheckErrors ? '<li><strong>Vypnout App Check enforcement:</strong><br>Firebase Console → App Check → Settings → Cloud Firestore → Nastavit na "Monitor" nebo "Off"</li>' : ''}
+                            <li>Počkat 30-60 sekund</li>
+                            <li>Obnovit stránku (Ctrl+F5)</li>
+                        </ol>
+                    </div>
+                `;
+            }
+            return '';
+        }
+        
+        // Automaticky spustit diagnostiku po načtení
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.firebaseReady) {
+                    runDiagnostics();
+                } else {
+                    // Počkat na Firebase
+                    const checkFirebase = setInterval(() => {
+                        if (window.firebaseReady) {
+                            clearInterval(checkFirebase);
+                            runDiagnostics();
+                        }
+                    }, 500);
+                    
+                    setTimeout(() => {
+                        clearInterval(checkFirebase);
+                        if (!window.firebaseReady) {
+                            addLog('⚠️ Firebase se nenačetl po 10 sekundách, spouštím diagnostiku...', 'warning');
+                            runDiagnostics();
+                        }
+                    }, 10000);
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
+
