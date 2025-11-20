@@ -53,7 +53,9 @@ try {
     // App Check se načítá dynamicky jen když je potřeba, aby se předešlo chybám
     window.firebaseAppCheck = null; // Výchozí hodnota - App Check vypnutý
     
-    // Inicializace App Check asynchronně (aby se neblokoval hlavní kód)
+    // App Check inicializace - POUZE pro localhost nebo když je explicitně zapnutý
+    // DŮLEŽITÉ: Pro produkci se App Check NENI inicializovat, pokud není explicitně zapnutý
+    // Pokud se App Check inicializuje a selhává, může blokovat Firestore požadavky
     (async () => {
         try {
             const isLocal = typeof window !== 'undefined' && window.location && (
@@ -61,16 +63,18 @@ try {
                 window.location.hostname === '127.0.0.1'
             );
             
-            // Zkontrolovat, jestli má být App Check vypnutý (např. pro nové domény, které nejsou v reCAPTCHA)
             const appCheckDisabled = typeof window !== 'undefined' && window.DISABLE_APP_CHECK === true;
-            
-            // Pro produkci: App Check je VYPNUTÝ, dokud není explicitně zapnutý
             const appCheckEnabled = typeof window !== 'undefined' && window.ENABLE_APP_CHECK === true;
             
+            // Pokud je App Check explicitně vypnutý, neinicializovat
             if (appCheckDisabled) {
                 console.log('ℹ️ App Check je explicitně vypnutý (window.DISABLE_APP_CHECK = true)');
-            } else if (isLocal) {
-                // Pro localhost načíst a inicializovat App Check s debug tokenem
+                window.firebaseAppCheck = null;
+                return;
+            }
+            
+            // Pro localhost: vždy inicializovat App Check s debug tokenem
+            if (isLocal) {
                 try {
                     const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
                     // eslint-disable-next-line no-undef
@@ -83,12 +87,15 @@ try {
                     console.log('✅ Firebase App Check inicializován (localhost s debug tokenem)');
                 } catch (appCheckError) {
                     console.warn('⚠️ App Check inicializace selhala na localhost:', appCheckError.message);
+                    window.firebaseAppCheck = null;
                 }
-            } else if (appCheckEnabled) {
-                // Pro produkci: App Check se inicializuje jen když je explicitně zapnutý
+                return;
+            }
+            
+            // Pro produkci: inicializovat POUZE když je explicitně zapnutý
+            if (appCheckEnabled) {
                 try {
                     const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
-                    // Site key lze přepsat přes window.FIREBASE_RECAPTCHA_V3_SITE_KEY; jinak použijeme výchozí
                     const siteKey = (typeof window !== 'undefined' && window.FIREBASE_RECAPTCHA_V3_SITE_KEY)
                         ? window.FIREBASE_RECAPTCHA_V3_SITE_KEY
                         : '6LdqPRIsAAAAAH_lRkJFQSQbbAP6dhYyxjTdsKsd';
@@ -98,34 +105,24 @@ try {
                         isTokenAutoRefreshEnabled: true,
                     });
                     window.firebaseAppCheck = appCheck;
-                    console.log('✅ Firebase App Check inicializován (produkce)');
+                    console.log('✅ Firebase App Check inicializován (produkce - explicitně zapnutý)');
                 } catch (appCheckError) {
                     console.warn('⚠️ App Check inicializace selhala v produkci:', appCheckError.message);
                     console.warn('💡 Přidejte novou doménu do reCAPTCHA konfigurace v Google Cloud Console');
-                }
-            } else {
-                // Pro produkci: Zkusit inicializovat App Check i když se objevují chyby
-                // Možná se token přesto vygeneruje a požadavky budou fungovat
-                try {
-                    const { initializeAppCheck, ReCaptchaV3Provider } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check.js');
-                    const siteKey = '6LdqPRIsAAAAAH_lRkJFQSQbbAP6dhYyxjTdsKsd';
-                    
-                    const appCheck = initializeAppCheck(app, {
-                        provider: new ReCaptchaV3Provider(siteKey),
-                        isTokenAutoRefreshEnabled: true,
-                    });
-                    window.firebaseAppCheck = appCheck;
-                    console.log('✅ Firebase App Check inicializován (produkce - i když se mohou objevovat ReCAPTCHA chyby)');
-                } catch (appCheckError) {
-                    console.warn('⚠️ App Check inicializace selhala v produkci:', appCheckError.message);
-                    console.warn('💡 Zkusím pokračovat bez App Check - pokud se objevují permission-denied chyby,');
-                    console.warn('💡 přidejte novou doménu do reCAPTCHA konfigurace v Google Cloud Console');
                     window.firebaseAppCheck = null;
                 }
+                return;
             }
+            
+            // Pro produkci: App Check je VYPNUTÝ (výchozí stav)
+            // NENI inicializovat App Check, aby se předešlo ReCAPTCHA chybám a permission-denied
+            console.log('ℹ️ App Check je vypnutý pro produkci (není localhost, není explicitně zapnutý)');
+            console.log('💡 Pro zapnutí App Check nastavte: window.ENABLE_APP_CHECK = true před načtením firebase-init.js');
+            window.firebaseAppCheck = null;
+            
         } catch (err) {
-            console.warn('⚠️ App Check není k dispozici nebo selhala inicializace:', err);
-            console.log('ℹ️ Aplikace bude fungovat bez App Check - Firestore přístup není blokován');
+            console.warn('⚠️ Chyba při kontrole App Check:', err);
+            window.firebaseAppCheck = null;
         }
     })();
 
