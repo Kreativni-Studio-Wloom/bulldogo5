@@ -114,26 +114,28 @@ function igUnsubscribeAll() {
 /** Realtime: seznam konverzací přihlášeného uživatele **/
 async function igSubscribeConversations() {
 	if (!igCurrentUser || !window.firebaseDb) return;
-	const { collection, query, where, orderBy, onSnapshot } = await igFS();
+	const { collection, query, where, onSnapshot } = await igFS();
 	const q = query(
 		collection(window.firebaseDb, 'conversations'),
-		where('users', 'array-contains', igCurrentUser.uid),
-		orderBy('updatedAt', 'desc')
+		where('users', 'array-contains', igCurrentUser.uid)
 	);
 	try { if (igConversationsUnsub) igConversationsUnsub(); } catch(_) {}
 	igConversationsUnsub = onSnapshot(q, (snap) => {
 		const list = [];
 		snap.forEach((docSnap) => {
 			const d = docSnap.data() || {};
+			const time = d.updatedAt?.toDate
+				? d.updatedAt.toDate()
+				: (d.updatedAt ? new Date(d.updatedAt) : new Date());
 			list.push({
 				id: docSnap.id,
 				title: d.title || d.otherDisplayName || 'Konverzace',
 				last: d.lastMessage || '',
-				time: d.updatedAt?.toDate ? d.updatedAt.toDate() : (d.updatedAt ? new Date(d.updatedAt) : new Date()),
+				time,
 				avatar: ''
 			});
 		});
-		igConversations = list;
+		igConversations = list.sort((a, b) => b.time - a.time);
 		igRenderConversations();
 		if (!igSelectedConvId && igConversations.length > 0) {
 			igOpenConversation(igConversations[0].id);

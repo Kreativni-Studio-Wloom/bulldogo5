@@ -27,7 +27,18 @@
     <link rel="stylesheet" href="electric-border.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- Firebase SDK (centralizovaná inicializace) -->
-    <!-- App Check je automaticky vypnutý v firebase-init.js pro produkci -->
+    <!-- Vypnout App Check pro produkci, aby se předešlo permission-denied chybám -->
+    <script>
+        // Automaticky vypnout App Check pro produkci (není localhost)
+        if (typeof window !== 'undefined' && window.location) {
+            const hostname = window.location.hostname;
+            const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+            if (!isLocal && typeof window.ENABLE_APP_CHECK === 'undefined') {
+                window.DISABLE_APP_CHECK = true;
+                console.log('🔧 App Check automaticky vypnutý pro produkci (services.html):', hostname);
+            }
+        }
+    </script>
     <script type="module" src="firebase-init.js"></script>
 </head>
 <body>
